@@ -1,4 +1,5 @@
-# Backend API — build from repo root (Render default context)
+# Used when Render Dockerfile Path = ./Dockerfile
+# Build context = repo root (Root Directory empty on Render).
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -13,5 +14,4 @@ COPY backend/app/ ./app/
 
 EXPOSE 8000
 
-# Render injects PORT; default 8000 for local docker runs
 CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
