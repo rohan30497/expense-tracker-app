@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase, isSupabaseConfigured, INITIAL_DEMO_EXPENSES } from './lib/supabaseClient';
+import { supabase, isSupabaseConfigured } from './lib/supabaseClient';
 import { apiUrl } from './lib/api';
 import KpiCards from './components/KpiCards';
 import ExpenseCharts from './components/ExpenseCharts';
@@ -14,44 +14,34 @@ export default function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState(null);
 
-  // 1. Fetch Expenses from Supabase or Backend API Fallback
+  // 1. Fetch Expenses from Supabase only
   const fetchExpenses = async () => {
     setLoading(true);
-    if (isSupabaseConfigured && supabase) {
-      try {
-        const { data, error } = await supabase
-          .from('expenses')
-          .select('*')
-          .order('transaction_date', { ascending: false });
 
-        if (error) throw error;
-        setExpenses(data || []);
-      } catch (err) {
-        console.warn('Failed to fetch from Supabase, loading fallback demo data:', err);
-        setExpenses(INITIAL_DEMO_EXPENSES);
-      }
-    } else {
-      // Local / Mock Mode: Fetch from backend API /api/expenses
-      try {
-        const res = await fetch(apiUrl('/api/expenses'));
-        if (res.ok) {
-          const json = await res.json();
-          if (json.data && json.data.length > 0) {
-            setExpenses(json.data);
-          } else {
-            setExpenses(INITIAL_DEMO_EXPENSES);
-          }
-        } else {
-          setExpenses(INITIAL_DEMO_EXPENSES);
-        }
-      } catch (e) {
-        setExpenses(INITIAL_DEMO_EXPENSES);
-      }
+    if (!isSupabaseConfigured || !supabase) {
+      console.warn('Supabase not configured. DB-only mode is active; no mock data will be shown.');
+      setExpenses([]);
+      setLoading(false);
+      return;
     }
-    setLoading(false);
+
+    try {
+      const { data, error } = await supabase
+        .from('expenses')
+        .select('*')
+        .order('transaction_date', { ascending: false });
+
+      if (error) throw error;
+      setExpenses(data || []);
+    } catch (err) {
+      console.error('Failed to fetch from Supabase:', err);
+      setExpenses([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // 2. Realtime WebSocket Subscription & Mock Auto-Polling
+  // 2. Load data once on startup
   useEffect(() => {
     fetchExpenses();
 
@@ -81,107 +71,78 @@ export default function App() {
       return () => {
         supabase.removeChannel(channel);
       };
-    } else {
-      // Auto-poll backend /api/expenses every 3 seconds for local testing
-      const interval = setInterval(() => {
-        fetch(apiUrl('/api/expenses'))
-          .then((res) => res.json())
-          .then((json) => {
-            if (json.data && json.data.length > 0) {
-              setExpenses(json.data);
-            }
-          })
-          .catch(() => {});
-      }, 3000);
-
-      return () => clearInterval(interval);
     }
   }, []);
 
   // 3. Add Manual Expense Handler
   const handleAddExpense = async (newExpense) => {
-    if (isSupabaseConfigured && supabase) {
-      try {
-        const { data, error } = await supabase
-          .from('expenses')
-          .insert([newExpense])
-          .select();
-        
-        if (!error && data) {
-          setExpenses((prev) => [data[0], ...prev]);
-          return;
-        }
-      } catch (err) {
-        console.error('Error inserting into Supabase:', err);
-      }
+    if (!isSupabaseConfigured || !supabase) {
+      console.warn('Supabase is not configured. Add is disabled in DB-only mode.');
+      return;
     }
 
-    // Local state fallback
-    const mockRecord = {
-      ...newExpense,
-      id: Date.now().toString()
-    };
-    setExpenses((prev) => [mockRecord, ...prev]);
+    try {
+      const { data, error } = await supabase
+        .from('expenses')
+        .insert([newExpense])
+        .select();
+
+      if (!error && data) {
+        setExpenses((prev) => [data[0], ...prev]);
+      }
+    } catch (err) {
+      console.error('Error inserting into Supabase:', err);
+    }
   };
 
   // 4. Update Category Handler
   const handleUpdateCategory = async (id, newCategory) => {
-    setExpenses((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, category: newCategory } : item))
-    );
+    if (!isSupabaseConfigured || !supabase) {
+      console.warn('Supabase is not configured. Category updates are disabled in DB-only mode.');
+      return;
+    }
 
-    if (isSupabaseConfigured && supabase) {
-      try {
-        await supabase
-          .from('expenses')
-          .update({ category: newCategory })
-          .eq('id', id);
-      } catch (err) {
-        console.error('Error updating category in Supabase:', err);
-      }
+    try {
+      await supabase
+        .from('expenses')
+        .update({ category: newCategory })
+        .eq('id', id);
+
+      setExpenses((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, category: newCategory } : item))
+      );
+    } catch (err) {
+      console.error('Error updating category in Supabase:', err);
     }
   };
 
   // 5. Edit Transaction Handler
   const handleEditExpense = async (id, updates) => {
-    // Optimistic update
-    setExpenses((prev) => prev.map((item) => (item.id === id ? { ...item, ...updates } : item)));
+    if (!isSupabaseConfigured || !supabase) {
+      console.warn('Supabase is not configured. Edit is disabled in DB-only mode.');
+      return;
+    }
 
-    if (isSupabaseConfigured && supabase) {
-      try {
-        await supabase.from('expenses').update(updates).eq('id', id);
-      } catch (err) {
-        console.error('Error updating in Supabase:', err);
-      }
-    } else {
-      try {
-        await fetch(apiUrl(`/api/expenses/${id}`), {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updates)
-        });
-      } catch (err) {
-        console.error('Error updating via API:', err);
-      }
+    try {
+      await supabase.from('expenses').update(updates).eq('id', id);
+      setExpenses((prev) => prev.map((item) => (item.id === id ? { ...item, ...updates } : item)));
+    } catch (err) {
+      console.error('Error updating in Supabase:', err);
     }
   };
 
   // 6. Delete Transaction Handler
   const handleDeleteExpense = async (id) => {
-    setExpenses((prev) => prev.filter((item) => item.id !== id));
+    if (!isSupabaseConfigured || !supabase) {
+      console.warn('Supabase is not configured. Delete is disabled in DB-only mode.');
+      return;
+    }
 
-    if (isSupabaseConfigured && supabase) {
-      try {
-        await supabase.from('expenses').delete().eq('id', id);
-      } catch (err) {
-        console.error('Error deleting from Supabase:', err);
-      }
-    } else {
-      try {
-        await fetch(apiUrl(`/api/expenses/${id}`), { method: 'DELETE' });
-      } catch (err) {
-        console.error('Error deleting via API:', err);
-      }
+    try {
+      await supabase.from('expenses').delete().eq('id', id);
+      setExpenses((prev) => prev.filter((item) => item.id !== id));
+    } catch (err) {
+      console.error('Error deleting from Supabase:', err);
     }
   };
 
