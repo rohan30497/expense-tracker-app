@@ -14,27 +14,21 @@ export default function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState(null);
 
-  // 1. Fetch Expenses from Supabase only
+  // 1. Fetch expenses from backend API
   const fetchExpenses = async () => {
     setLoading(true);
 
-    if (!isSupabaseConfigured || !supabase) {
-      console.warn('Supabase not configured. DB-only mode is active; no mock data will be shown.');
-      setExpenses([]);
-      setLoading(false);
-      return;
-    }
-
     try {
-      const { data, error } = await supabase
-        .from('expenses')
-        .select('*')
-        .order('transaction_date', { ascending: false });
+      const res = await fetch(apiUrl('/api/expenses'));
 
-      if (error) throw error;
-      setExpenses(data || []);
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      const json = await res.json();
+      setExpenses(Array.isArray(json.data) ? json.data : []);
     } catch (err) {
-      console.error('Failed to fetch from Supabase:', err);
+      console.error('Failed to fetch expenses from backend:', err);
       setExpenses([]);
     } finally {
       setLoading(false);
