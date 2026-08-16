@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured, INITIAL_DEMO_EXPENSES } from './lib/supabaseClient';
+import { apiUrl } from './lib/api';
 import KpiCards from './components/KpiCards';
 import ExpenseCharts from './components/ExpenseCharts';
 import TransactionTable from './components/TransactionTable';
@@ -32,7 +33,7 @@ export default function App() {
     } else {
       // Local / Mock Mode: Fetch from backend API /api/expenses
       try {
-        const res = await fetch('/api/expenses');
+        const res = await fetch(apiUrl('/api/expenses'));
         if (res.ok) {
           const json = await res.json();
           if (json.data && json.data.length > 0) {
@@ -83,7 +84,7 @@ export default function App() {
     } else {
       // Auto-poll backend /api/expenses every 3 seconds for local testing
       const interval = setInterval(() => {
-        fetch('/api/expenses')
+        fetch(apiUrl('/api/expenses'))
           .then((res) => res.json())
           .then((json) => {
             if (json.data && json.data.length > 0) {
@@ -154,7 +155,7 @@ export default function App() {
       }
     } else {
       try {
-        await fetch(`/api/expenses/${id}`, {
+        await fetch(apiUrl(`/api/expenses/${id}`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updates)
@@ -177,7 +178,7 @@ export default function App() {
       }
     } else {
       try {
-        await fetch(`/api/expenses/${id}`, { method: 'DELETE' });
+        await fetch(apiUrl(`/api/expenses/${id}`), { method: 'DELETE' });
       } catch (err) {
         console.error('Error deleting via API:', err);
       }
