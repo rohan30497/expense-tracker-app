@@ -1,13 +1,12 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from './lib/supabaseClient';
 import { apiUrl } from './lib/api';
 import KpiCards from './components/KpiCards';
 import ExpenseCharts from './components/ExpenseCharts';
-import TransactionTable from './components/TransactionTable';
+import TransactionList from './components/TransactionList';
 import AddExpenseModal from './components/AddExpenseModal';
-import EditExpenseModal from './components/EditExpenseModal';
 import { useTheme } from './context/ThemeContext';
-import { Wallet, Plus, RefreshCw, ShieldCheck, Calendar, Sun, Moon, Download } from 'lucide-react';
+import { Check } from 'lucide-react';
 
 export default function App() {
   const [expenses, setExpenses] = useState([]);
@@ -16,6 +15,9 @@ export default function App() {
   const [editingExpense, setEditingExpense] = useState(null);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedCategory, setSelectedCategory] = useState('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState('none');
 
   // Generate year options (current year and past 5 years)
   const yearOptions = useMemo(() => {
@@ -23,14 +25,11 @@ export default function App() {
     return Array.from({ length: 6 }, (_, i) => currentYear - i);
   }, []);
 
-  // Filter expenses by selected month/year
-  const filteredExpenses = useMemo(() => {
-    return expenses.filter(item => {
-      if (!item.transaction_date) return false;
-      const date = new Date(item.transaction_date);
-      return date.getMonth() === selectedMonth && date.getFullYear() === selectedYear;
-    });
-  }, [expenses, selectedMonth, selectedYear]);
+  // Month names for filter dropdown
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
 
   // 1. Fetch expenses from backend API
   const fetchExpenses = async () => {
@@ -166,15 +165,15 @@ export default function App() {
     setExpenses((prev) => prev.filter((item) => item.id !== id));
   };
 
-  // 7. Export to CSV
+  // Export to CSV
   const handleExportCSV = () => {
-    if (filteredExpenses.length === 0) {
+    if (expenses.length === 0) {
       alert('No expenses to export');
       return;
     }
 
     const headers = ['Date', 'Merchant', 'Category', 'Amount (INR)', 'Account', 'Raw Info'];
-    const rows = filteredExpenses.map(item => [
+    const rows = expenses.map(item => [
       item.transaction_date ? new Date(item.transaction_date).toLocaleDateString('en-IN') : 'N/A',
       item.merchant || 'Unknown',
       item.category || 'Other',
@@ -198,9 +197,9 @@ export default function App() {
     document.body.removeChild(link);
   };
 
-  // 8. Export to PDF (simple text-based PDF)
+  // Export to PDF
   const handleExportPDF = async () => {
-    if (filteredExpenses.length === 0) {
+    if (expenses.length === 0) {
       alert('No expenses to export');
       return;
     }
@@ -208,29 +207,29 @@ export default function App() {
     try {
       const { jsPDF } = await import('jspdf');
       const doc = new jsPDF();
-      
-      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
         'July', 'August', 'September', 'October', 'November', 'December'];
-      
+
       // Title
       doc.setFontSize(20);
       doc.setTextColor(99, 102, 241);
       doc.text('AutoExpense - Expense Report', 20, 20);
-      
+
       doc.setFontSize(12);
       doc.setTextColor(100, 100, 100);
       doc.text(`${monthNames[selectedMonth]} ${selectedYear}`, 20, 30);
-      
+
       // Summary
-      const totalSpent = filteredExpenses.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+      const totalSpent = expenses.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
       doc.setFontSize(11);
       doc.setTextColor(0, 0, 0);
-      doc.text(`Total Transactions: ${filteredExpenses.length}`, 20, 45);
+      doc.text(`Total Transactions: ${expenses.length}`, 20, 45);
       doc.text(`Total Amount: INR ${totalSpent.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 20, 52);
-      
+
       // Table
       const headers = [['Date', 'Merchant', 'Category', 'Amount (INR)']];
-      const data = filteredExpenses.map(item => [
+      const data = expenses.map(item => [
         item.transaction_date ? new Date(item.transaction_date).toLocaleDateString('en-IN') : 'N/A',
         item.merchant || 'Unknown',
         item.category || 'Other',
@@ -256,144 +255,254 @@ export default function App() {
   const { theme, toggleTheme } = useTheme();
 
   return (
-    <div className="container">
-      {/* Header */}
-      <header className="header">
-        <div className="logo-group">
-          <div className="logo-icon">
-            <Wallet size={24} color="#ffffff" />
+    <div className="app-layout" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      {/* Sidebar */}
+      <div style={{
+        width: 280,
+        flexShrink: 0,
+        background: theme === 'dark' ? 'var(--bg-sidebar)' : '#fff',
+        color: theme === 'dark' ? 'var(--text-sidebar)' : '#1e293b',
+        height: '100vh',
+        overflowY: 'auto',
+        borderRight: '1px solid var(--border-primary)',
+        padding: 'var(--space-6) var(--space-4)',
+        display: 'flex',
+        flexDirection: 'column',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-6)' }}>
+          <div style={{ width: 40, height: 40, borderRadius: 'var(--radius-lg)', background: 'var(--accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <i className="lucide Wallet" width={20} height={20} color="#fff" />
           </div>
-          <div>
-            <h1 className="brand-title">AutoExpense</h1>
-            <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px' }}>
-              Automated Bank Email Expense Tracker
-            </div>
-          </div>
+          <span style={{ fontWeight: 600, fontSize: '1rem' }}>AutoExpense</span>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          {isSupabaseConfigured ? (
-            <div className="live-badge">
-              <span className="live-dot"></span> Realtime Supabase Sync
-            </div>
-          ) : (
-            <div className="live-badge" style={{ borderColor: 'rgba(99, 102, 241, 0.4)', color: '#a5b4fc', background: 'rgba(99, 102, 241, 0.12)' }}>
-              <ShieldCheck size={12} /> Auto Mode Enabled
-            </div>
-          )}
-
-          {/* Month/Year Filter */}
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <div style={{ position: 'relative' }}>
-              <Calendar size={16} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }} />
-              <select
-                className="category-select"
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                style={{ paddingLeft: '2.2rem', minWidth: '160px' }}
+        <nav style={{ flex: 1, overflowY: 'auto' }}>
+          <ul style={{
+            listStyle: 'none',
+            padding: 0,
+            margin: 0,
+          }}>
+            <li style={{ marginBottom: 'var(--space-2)' }}>
+              <button
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--space-2)',
+                  padding: 'var(--space-3) var(--space-4)',
+                  borderRadius: 'var(--radius-md)',
+                  color: theme === 'dark' ? 'var(--text-sidebar)' : '#1e293b',
+                  background: 'transparent',
+                  border: 'none',
+                  width: '100%',
+                  fontSize: '0.875rem',
+                  fontWeight: 500,
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  marginRight: 'var(--space-1)',
+                }}
+                onClick={() => setActiveFilter('overview')}
               >
-                {[
-                  { value: 0, label: 'January' },
-                  { value: 1, label: 'February' },
-                  { value: 2, label: 'March' },
-                  { value: 3, label: 'April' },
-                  { value: 4, label: 'May' },
-                  { value: 5, label: 'June' },
-                  { value: 6, label: 'July' },
-                  { value: 7, label: 'August' },
-                  { value: 8, label: 'September' },
-                  { value: 9, label: 'October' },
-                  { value: 10, label: 'November' },
-                  { value: 11, label: 'December' }
-                ].map(m => (
-                  <option key={m.value} value={m.value}>{m.label}</option>
-                ))}
-              </select>
-            </div>
-            <select
-              className="category-select"
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(Number(e.target.value))}
-              style={{ minWidth: '100px' }}
-            >
-              {yearOptions.map(y => (
-                <option key={y} value={y}>{y}</option>
-              ))}
-            </select>
-          </div>
+                <i className="lucide Layout" width={18} height={18} style={{ color: '#64748b', marginRight: 'var(--space-2)' }} />
+                Overview
+              </button>
+            </li>
+            <li style={{ marginBottom: 'var(--space-2)' }}>
+              <button
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--space-2)',
+                  padding: 'var(--space-3) var(--space-4)',
+                  borderRadius: 'var(--radius-md)',
+                  color: theme === 'dark' ? 'var(--text-sidebar)' : '#1e293b',
+                  background: 'transparent',
+                  border: 'none',
+                  width: '100%',
+                  fontSize: '0.875rem',
+                  fontWeight: 500,
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  marginRight: 'var(--space-1)',
+                }}
+                onClick={() => setActiveFilter('charts')}
+              >
+                <i className="lucide Chart" width={18} height={18} style={{ color: '#64748b', marginRight: 'var(--space-2)' }} />
+                Charts
+              </button>
+            </li>
+            <li style={{ marginBottom: 'var(--space-2)' }}>
+              <button
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--space-2)',
+                  padding: 'var(--space-3) var(--space-4)',
+                  borderRadius: 'var(--radius-md)',
+                  color: theme === 'dark' ? 'var(--text-sidebar)' : '#1e293b',
+                  background: 'transparent',
+                  border: 'none',
+                  width: '100%',
+                  fontSize: '0.875rem',
+                  fontWeight: 500,
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  marginRight: 'var(--space-1)',
+                }}
+                onClick={() => setActiveFilter('transactions')}
+              >
+                <i className="lucide List" width={18} height={18} style={{ color: '#64748b', marginRight: 'var(--space-2)' }} />
+                Transactions
+              </button>
+            </li>
+          </ul>
+        </nav>
 
-          {/* Theme Toggle */}
+        <div style={{ padding: 'var(--space-4)', marginTop: 'auto', borderTop: '1px solid var(--border-primary)' }}>
           <button
-            className="btn-primary"
-            style={{ background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', padding: '0.6rem' }}
+            style={{
+              width: '100%',
+              padding: 'var(--space-3) var(--space-4)',
+              borderRadius: 'var(--radius-md)',
+              background: 'var(--accent-primary)',
+              color: 'var(--bg)',
+              border: 'none',
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              textAlign: 'left',
+              cursor: 'pointer',
+              marginBottom: 'var(--space-2)',
+            }}
+            onClick={() => setIsModalOpen(true)}
+          >
+            <i className="lucide Plus" width={16} height={16} style={{ marginRight: 'var(--space-2)' }} /> Add Expense
+          </button>
+          <button
+            style={{
+              width: '100%',
+              padding: 'var(--space-3) var(--space-4)',
+              borderRadius: 'var(--radius-md)',
+              background: 'var(--bg-tertiary)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border-primary)',
+              fontSize: '0.875rem',
+              fontWeight: 500,
+              textAlign: 'left',
+              cursor: 'pointer',
+            }}
             onClick={toggleTheme}
             title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
           >
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
-
-          {/* Export Buttons */}
-          <div style={{ display: 'flex', gap: '0.4rem' }}>
-            <button
-              className="btn-primary"
-              style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', color: 'var(--accent-success)' }}
-              onClick={handleExportCSV}
-              title="Export to CSV"
-            >
-              <Download size={16} /> CSV
-            </button>
-            <button
-              className="btn-primary"
-              style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', color: 'var(--accent-danger)' }}
-              onClick={handleExportPDF}
-              title="Export to PDF"
-            >
-              <Download size={16} /> PDF
-            </button>
-          </div>
-
-          <button
-            className="btn-primary"
-            style={{ background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
-            onClick={fetchExpenses}
-            title="Refresh transactions"
-          >
-            <RefreshCw size={16} className={loading ? 'spin' : ''} />
-          </button>
-
-          <button className="btn-primary" onClick={() => setIsModalOpen(true)}>
-            <Plus size={18} /> Add Expense
+            Theme
           </button>
         </div>
-      </header>
+      </div>
 
-      {/* KPI Cards */}
-      <KpiCards expenses={filteredExpenses} />
+      {/* Main Content */}
+      <main style={{ flex: 1, width: '100%', overflowY: 'auto', padding: 'var(--space-6) var(--space-4)' }}>
+        <div style={{ display: 'flex', gap: 'var(--space-4)', marginBottom: 'var(--space-6)' }}>
+          <button
+            style={{
+              padding: 'var(--space-2) var(--space-3)',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--border-primary)',
+              background: 'transparent',
+              color: 'var(--text-primary)',
+              fontSize: '0.75rem',
+              fontWeight: 500,
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              cursor: 'pointer',
+            }}
+            onClick={() => setActiveFilter('overview')}
+            {...activeFilter === 'overview' && { borderColor: 'var(--accent-primary)', color: 'var(--accent-primary)' }}
+          >
+            Overview
+          </button>
+          <button
+            style={{
+              padding: 'var(--space-2) var(--space-3)',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--border-primary)',
+              background: 'transparent',
+              color: activeFilter === 'charts' ? 'var(--accent-primary)' : 'var(--text-secondary)',
+              fontSize: '0.75rem',
+              fontWeight: 500,
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              cursor: 'pointer',
+            }}
+            onClick={() => setActiveFilter('charts')}
+            {...activeFilter === 'charts' && { borderColor: 'var(--accent-primary)', color: 'var(--accent-primary)' }}
+          >
+            Charts
+          </button>
+          <button
+            style={{
+              padding: 'var(--space-2) var(--space-3)',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--border-primary)',
+              background: 'transparent',
+              color: activeFilter === 'transactions' ? 'var(--accent-primary)' : 'var(--text-secondary)',
+              fontSize: '0.75rem',
+              fontWeight: 500,
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              cursor: 'pointer',
+            }}
+            onClick={() => setActiveFilter('transactions')}
+            {...activeFilter === 'transactions' && { borderColor: 'var(--accent-primary)', color: 'var(--accent-primary)' }}
+          >
+            Transactions
+          </button>
+        </div>
 
-      {/* Visual Graphs */}
-      <ExpenseCharts expenses={filteredExpenses} />
+        {/* KPI Cards + Charts */}
+        {activeFilter !== 'transactions' && (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
+            gap: 'var(--space-5)',
+            marginBottom: 'var(--space-6)',
+          }}>
+            <KpiCards expenses={expenses} selectedMonth={selectedMonth} selectedYear={selectedYear} />
+            <ExpenseCharts expenses={expenses} selectedMonth={selectedMonth} selectedYear={selectedYear} />
+          </div>
+        )}
 
-      {/* Transaction Table */}
-      <TransactionTable
-        expenses={filteredExpenses}
-        onUpdateCategory={handleUpdateCategory}
-        onEdit={(expense) => setEditingExpense(expense)}
-        onDelete={handleDeleteExpense}
-      />
+        {/* Transaction List */}
+        {activeFilter === 'transactions' && (
+          <TransactionList
+            expenses={expenses}
+            selectedMonth={selectedMonth}
+            selectedYear={selectedYear}
+            monthNames={monthNames}
+            yearOptions={yearOptions}
+            onUpdateCategory={handleUpdateCategory}
+            onEdit={(id, updates) => handleEditExpense(id, updates)}
+            onDelete={handleDeleteExpense}
+            onDuplicate={(item) => {
+              // Handle duplicate - just add with new ID
+              if (isSupabaseConfigured && supabase) {
+                supabase.from('expenses').insert([{ ...item, id: undefined, created_at: new Date().toISOString() }]).then(() => fetchExpenses());
+              }
+            }}
+            onExport={handleExportCSV}
+            selectedCategory={selectedCategory}
+            setSelectedCategory={setSelectedCategory}
+          />
+        )}
+      </main>
 
       {/* Add Expense Modal */}
       <AddExpenseModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onAddExpense={handleAddExpense}
-      />
-
-      {/* Edit Expense Modal */}
-      <EditExpenseModal
-        isOpen={editingExpense !== null}
-        expense={editingExpense}
-        onClose={() => setEditingExpense(null)}
-        onSave={handleEditExpense}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingExpense(null);
+        }}
+        mode="add"
+        onSubmit={handleAddExpense}
       />
     </div>
   );
