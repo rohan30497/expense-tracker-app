@@ -114,18 +114,20 @@ export default function App() {
       return;
     }
 
-    try {
-      await supabase
-        .from('expenses')
-        .update({ category: newCategory })
-        .eq('id', id);
+    const { error } = await supabase
+      .from('expenses')
+      .update({ category: newCategory })
+      .eq('id', id);
 
-      setExpenses((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, category: newCategory } : item))
-      );
-    } catch (err) {
-      console.error('Error updating category in Supabase:', err);
+    if (error) {
+      console.error('Error updating category in Supabase:', error);
+      alert('Failed to update category: ' + error.message);
+      return;
     }
+
+    setExpenses((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, category: newCategory } : item))
+    );
   };
 
   // 5. Edit Transaction Handler
@@ -135,12 +137,15 @@ export default function App() {
       return;
     }
 
-    try {
-      await supabase.from('expenses').update(updates).eq('id', id);
-      setExpenses((prev) => prev.map((item) => (item.id === id ? { ...item, ...updates } : item)));
-    } catch (err) {
-      console.error('Error updating in Supabase:', err);
+    const { error } = await supabase.from('expenses').update(updates).eq('id', id);
+
+    if (error) {
+      console.error('Error updating in Supabase:', error);
+      alert('Failed to update expense: ' + error.message);
+      return;
     }
+
+    setExpenses((prev) => prev.map((item) => (item.id === id ? { ...item, ...updates } : item)));
   };
 
   // 6. Delete Transaction Handler
@@ -150,12 +155,15 @@ export default function App() {
       return;
     }
 
-    try {
-      await supabase.from('expenses').delete().eq('id', id);
-      setExpenses((prev) => prev.filter((item) => item.id !== id));
-    } catch (err) {
-      console.error('Error deleting from Supabase:', err);
+    const { error } = await supabase.from('expenses').delete().eq('id', id);
+
+    if (error) {
+      console.error('Error deleting from Supabase:', error);
+      alert('Failed to delete expense: ' + error.message);
+      return;
     }
+
+    setExpenses((prev) => prev.filter((item) => item.id !== id));
   };
 
   // 7. Export to CSV
