@@ -6,7 +6,8 @@ import ExpenseCharts from './components/ExpenseCharts';
 import TransactionTable from './components/TransactionTable';
 import AddExpenseModal from './components/AddExpenseModal';
 import EditExpenseModal from './components/EditExpenseModal';
-import { Wallet, Plus, RefreshCw, Zap, ShieldCheck, Calendar, ChevronDown } from 'lucide-react';
+import { useTheme } from './context/ThemeContext';
+import { Wallet, Plus, RefreshCw, ShieldCheck, Calendar, Sun, Moon, Download } from 'lucide-react';
 
 export default function App() {
   const [expenses, setExpenses] = useState([]);
@@ -157,6 +158,95 @@ export default function App() {
     }
   };
 
+  // 7. Export to CSV
+  const handleExportCSV = () => {
+    if (filteredExpenses.length === 0) {
+      alert('No expenses to export');
+      return;
+    }
+
+    const headers = ['Date', 'Merchant', 'Category', 'Amount (INR)', 'Account', 'Raw Info'];
+    const rows = filteredExpenses.map(item => [
+      item.transaction_date ? new Date(item.transaction_date).toLocaleDateString('en-IN') : 'N/A',
+      item.merchant || 'Unknown',
+      item.category || 'Other',
+      Number(item.amount || 0).toFixed(2),
+      item.account_no || 'N/A',
+      item.raw_info || ''
+    ]);
+
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `expenses_${selectedYear}_${String(selectedMonth + 1).padStart(2, '0')}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // 8. Export to PDF (simple text-based PDF)
+  const handleExportPDF = async () => {
+    if (filteredExpenses.length === 0) {
+      alert('No expenses to export');
+      return;
+    }
+
+    try {
+      const { jsPDF } = await import('jspdf');
+      const doc = new jsPDF();
+      
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+        'July', 'August', 'September', 'October', 'November', 'December'];
+      
+      // Title
+      doc.setFontSize(20);
+      doc.setTextColor(99, 102, 241);
+      doc.text('AutoExpense - Expense Report', 20, 20);
+      
+      doc.setFontSize(12);
+      doc.setTextColor(100, 100, 100);
+      doc.text(`${monthNames[selectedMonth]} ${selectedYear}`, 20, 30);
+      
+      // Summary
+      const totalSpent = filteredExpenses.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+      doc.setFontSize(11);
+      doc.setTextColor(0, 0, 0);
+      doc.text(`Total Transactions: ${filteredExpenses.length}`, 20, 45);
+      doc.text(`Total Amount: INR ${totalSpent.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 20, 52);
+      
+      // Table
+      const headers = [['Date', 'Merchant', 'Category', 'Amount (INR)']];
+      const data = filteredExpenses.map(item => [
+        item.transaction_date ? new Date(item.transaction_date).toLocaleDateString('en-IN') : 'N/A',
+        item.merchant || 'Unknown',
+        item.category || 'Other',
+        Number(item.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })
+      ]);
+
+      doc.autoTable({
+        head: headers,
+        body: data,
+        startY: 60,
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [99, 102, 241] },
+        alternateRowStyles: { fillColor: [245, 245, 250] }
+      });
+
+      doc.save(`expenses_${selectedYear}_${String(selectedMonth + 1).padStart(2, '0')}.pdf`);
+    } catch (err) {
+      console.error('PDF export error:', err);
+      alert('PDF export requires jspdf and jspdf-autotable packages. Install them or use CSV export.');
+    }
+  };
+
+  const { theme, toggleTheme } = useTheme();
+
   return (
     <div className="container">
       {/* Header */}
@@ -222,6 +312,36 @@ export default function App() {
                 <option key={y} value={y}>{y}</option>
               ))}
             </select>
+          </div>
+
+          {/* Theme Toggle */}
+          <button
+            className="btn-primary"
+            style={{ background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)', padding: '0.6rem' }}
+            onClick={toggleTheme}
+            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          >
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+
+          {/* Export Buttons */}
+          <div style={{ display: 'flex', gap: '0.4rem' }}>
+            <button
+              className="btn-primary"
+              style={{ background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', color: 'var(--accent-success)' }}
+              onClick={handleExportCSV}
+              title="Export to CSV"
+            >
+              <Download size={16} /> CSV
+            </button>
+            <button
+              className="btn-primary"
+              style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', color: 'var(--accent-danger)' }}
+              onClick={handleExportPDF}
+              title="Export to PDF"
+            >
+              <Download size={16} /> PDF
+            </button>
           </div>
 
           <button
