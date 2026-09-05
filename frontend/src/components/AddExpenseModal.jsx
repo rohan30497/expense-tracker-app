@@ -75,8 +75,11 @@ export default function AddExpenseModal({ isOpen, onClose, onAddExpense }) {
             >
               <option value="Food & Dining">Food & Dining</option>
               <option value="Transport">Transport</option>
+              <option value="Online Shopping">Online Shopping</option>
+              <option value="Online Groceries">Online Groceries</option>
               <option value="Shopping">Shopping</option>
               <option value="Bills & Utilities">Bills & Utilities</option>
+              <option value="Investment">Investment</option>
               <option value="Donation/Charity">Donation/Charity</option>
               <option value="Entertainment & Leisure">Entertainment & Leisure</option>
               <option value="Other">Other</option>

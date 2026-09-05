@@ -5,8 +5,11 @@ from typing import Dict, Any, Optional
 CATEGORY_KEYWORDS = {
     "Food & Dining": ["SWIGGY", "ZOMATO", "MCDONALD", "STARBUCKS", "KFC", "DOMINOS", "RESTAURANT", "CAFE", "BAKERY", "FOOD", "DINER", "PIZZA"],
     "Transport": ["UBER", "OLA", "RAPIDO", "METRO", "FUEL", "PETROL", "SHELL", "HPCL", "BPCL", "INDIANOIL", "CAB", "TAXI", "IRCTC", "RAILWAY"],
-    "Shopping": ["AMAZON", "FLIPKART", "MYNTRA", "AJIO", "DMART", "TATA", "RELIANCE", "ZUDIO", "SUPERMARKET", "STORE", "MALL", "GROCERY"],
+    "Online Shopping": ["AMAZON", "FLIPKART", "MYNTRA", "AJIO", "MEESHO", "SNAPDEAL", "SHOPEE", "ZARA", "H&M"],
+    "Online Groceries": ["BLINKIT", "BIGBASKET", "ZEPTO", "GROFFR", "NATURES BASKET", "SPENCER", "DMART READY", "JIO MART"],
+    "Shopping": ["DMART", "TATA", "RELIANCE", "ZUDIO", "SUPERMARKET", "STORE", "MALL", "GROCERY", "RETAIL", "OUTLET"],
     "Bills & Utilities": ["ELECTRICITY", "WATER", "GAS", "AIRTEL", "JIO", "VODAFONE", "VI", "BROADBAND", "RECHARGE", "TATA PLAY", "DTH", "UTILITY"],
+    "Investment": ["LIC", "GROWW", "ZERODHA", "UPSTOX", "ANGEL ONE", "KOTAK SECURITIES", "HDFC SECURITIES", "ICICI DIRECT", "MUTUAL FUND", "SIP", "NPS", "PPF", "ELSS"],
     "Donation/Charity": ["SACHKHAND", "FOUNDATION", "DONATION", "TRUST", "NGO", "RELIEF", "CHARITY", "CARE", "TEMPLE"],
     "Entertainment & Leisure": ["NETFLIX", "SPOTIFY", "PRIME", "APPLE", "BOOKMYSHOW", "CINEMA", "THEATRE", "GAME", "STEAM", "YOUTUBE"],
 }

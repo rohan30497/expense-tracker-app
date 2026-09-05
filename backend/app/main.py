@@ -62,6 +62,15 @@ def process_email(payload: EmailPayload):
             parsed_result["parser_used"] = llm_result.get("parser_used")
             parsed_result["success"] = True
 
+    # Step 3: LLM validation for category if regex succeeded but category is "Other"
+    # Only call LLM if we have a valid amount but category is "Other"
+    if parsed_result.get("success") and parsed_result.get("amount") and parsed_result.get("category") == "Other":
+        llm_result = classify_with_llm(payload.subject, payload.body)
+        if llm_result.get("success") and llm_result.get("category") and llm_result.get("category") != "Other":
+            parsed_result["category"] = llm_result.get("category")
+            parsed_result["merchant"] = llm_result.get("merchant", parsed_result.get("merchant"))
+            parsed_result["parser_used"] = f"{parsed_result.get('parser_used')}_llm_validated"
+
     if not parsed_result.get("amount"):
         return {
             "status": "skipped",

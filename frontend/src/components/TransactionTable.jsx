@@ -10,8 +10,11 @@ export default function TransactionTable({ expenses, onUpdateCategory, onEdit, o
     'ALL',
     'Food & Dining',
     'Transport',
+    'Online Shopping',
+    'Online Groceries',
     'Shopping',
     'Bills & Utilities',
+    'Investment',
     'Donation/Charity',
     'Entertainment & Leisure',
     'Other'
@@ -31,8 +34,11 @@ export default function TransactionTable({ expenses, onUpdateCategory, onEdit, o
     if (!category) return 'badge-cat';
     if (category.includes('Food')) return 'badge-cat cat-Food';
     if (category.includes('Transport')) return 'badge-cat cat-Transport';
+    if (category.includes('Online Shopping')) return 'badge-cat cat-OnlineShopping';
+    if (category.includes('Online Groceries')) return 'badge-cat cat-OnlineGroceries';
     if (category.includes('Shopping')) return 'badge-cat cat-Shopping';
     if (category.includes('Bills')) return 'badge-cat cat-Bills';
+    if (category.includes('Investment')) return 'badge-cat cat-Investment';
     if (category.includes('Donation') || category.includes('Charity')) return 'badge-cat cat-Donation';
     if (category.includes('Entertainment')) return 'badge-cat cat-Entertainment';
     return 'badge-cat';

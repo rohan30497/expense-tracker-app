@@ -36,7 +36,7 @@ def classify_with_llm(raw_email_subject: str, raw_email_body: str) -> Dict[str, 
             '  "amount": float or null,\n'
             '  "currency": "INR" or currency code,\n'
             '  "merchant": "Clean vendor or recipient name",\n'
-            '  "category": "Food & Dining" | "Transport" | "Shopping" | "Bills & Utilities" | "Donation/Charity" | "Entertainment & Leisure" | "Other"\n'
+            '  "category": "Food & Dining" | "Transport" | "Online Shopping" | "Online Groceries" | "Shopping" | "Bills & Utilities" | "Investment" | "Donation/Charity" | "Entertainment & Leisure" | "Other"\n'
             "}"
         )
 

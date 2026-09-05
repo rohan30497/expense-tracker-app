@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase, isSupabaseConfigured } from './lib/supabaseClient';
 import { apiUrl } from './lib/api';
 import KpiCards from './components/KpiCards';
@@ -6,13 +6,30 @@ import ExpenseCharts from './components/ExpenseCharts';
 import TransactionTable from './components/TransactionTable';
 import AddExpenseModal from './components/AddExpenseModal';
 import EditExpenseModal from './components/EditExpenseModal';
-import { Wallet, Plus, RefreshCw, Zap, ShieldCheck } from 'lucide-react';
+import { Wallet, Plus, RefreshCw, Zap, ShieldCheck, Calendar, ChevronDown } from 'lucide-react';
 
 export default function App() {
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState(null);
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+
+  // Generate year options (current year and past 5 years)
+  const yearOptions = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    return Array.from({ length: 6 }, (_, i) => currentYear - i);
+  }, []);
+
+  // Filter expenses by selected month/year
+  const filteredExpenses = useMemo(() => {
+    return expenses.filter(item => {
+      if (!item.transaction_date) return false;
+      const date = new Date(item.transaction_date);
+      return date.getMonth() === selectedMonth && date.getFullYear() === selectedYear;
+    });
+  }, [expenses, selectedMonth, selectedYear]);
 
   // 1. Fetch expenses from backend API
   const fetchExpenses = async () => {
@@ -167,6 +184,46 @@ export default function App() {
             </div>
           )}
 
+          {/* Month/Year Filter */}
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <div style={{ position: 'relative' }}>
+              <Calendar size={16} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }} />
+              <select
+                className="category-select"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                style={{ paddingLeft: '2.2rem', minWidth: '160px' }}
+              >
+                {[
+                  { value: 0, label: 'January' },
+                  { value: 1, label: 'February' },
+                  { value: 2, label: 'March' },
+                  { value: 3, label: 'April' },
+                  { value: 4, label: 'May' },
+                  { value: 5, label: 'June' },
+                  { value: 6, label: 'July' },
+                  { value: 7, label: 'August' },
+                  { value: 8, label: 'September' },
+                  { value: 9, label: 'October' },
+                  { value: 10, label: 'November' },
+                  { value: 11, label: 'December' }
+                ].map(m => (
+                  <option key={m.value} value={m.value}>{m.label}</option>
+                ))}
+              </select>
+            </div>
+            <select
+              className="category-select"
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(Number(e.target.value))}
+              style={{ minWidth: '100px' }}
+            >
+              {yearOptions.map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+          </div>
+
           <button
             className="btn-primary"
             style={{ background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
@@ -183,14 +240,14 @@ export default function App() {
       </header>
 
       {/* KPI Cards */}
-      <KpiCards expenses={expenses} />
+      <KpiCards expenses={filteredExpenses} />
 
       {/* Visual Graphs */}
-      <ExpenseCharts expenses={expenses} />
+      <ExpenseCharts expenses={filteredExpenses} />
 
       {/* Transaction Table */}
       <TransactionTable
-        expenses={expenses}
+        expenses={filteredExpenses}
         onUpdateCategory={handleUpdateCategory}
         onEdit={(expense) => setEditingExpense(expense)}
         onDelete={handleDeleteExpense}

@@ -4,8 +4,11 @@ import { X, Save } from 'lucide-react';
 const CATEGORIES = [
   'Food & Dining',
   'Transport',
+  'Online Shopping',
+  'Online Groceries',
   'Shopping',
   'Bills & Utilities',
+  'Investment',
   'Donation/Charity',
   'Entertainment & Leisure',
   'Other'
