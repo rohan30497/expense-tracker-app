@@ -10,7 +10,10 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
+    "@tanstack/react-virtual": "^3.14.10",
     "chart.js": "^4.4.1",
+    "date-fns": "^4.4.0",
+    "framer-motion": "^13.2.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
     "lucide-react": "^0.300.0",
