@@ -6,7 +6,9 @@ import ExpenseCharts from './components/ExpenseCharts';
 import TransactionList from './components/TransactionList';
 import AddExpenseModal from './components/AddExpenseModal';
 import { useTheme } from './context/ThemeContext';
-import { Check } from 'lucide-react';
+import { DEFAULT_CATEGORIES } from './lib/categories';
+import { Check, Wallet, LayoutDashboard, PieChart, List, Plus, Sun, Moon } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function App() {
   const [expenses, setExpenses] = useState([]);
@@ -18,6 +20,12 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('none');
+  const [customCategories, setCustomCategories] = useState([]);
+
+  const allCategories = useMemo(
+    () => [...DEFAULT_CATEGORIES, ...customCategories.filter((c) => !DEFAULT_CATEGORIES.includes(c))],
+    [customCategories]
+  );
 
   // Generate year options (current year and past 5 years)
   const yearOptions = useMemo(() => {
@@ -54,6 +62,11 @@ export default function App() {
 
   // 2. Load data once on startup
   useEffect(() => {
+    fetch(apiUrl('/api/categories'))
+      .then((res) => res.json())
+      .then((json) => setCustomCategories(Array.isArray(json.data) ? json.data : []))
+      .catch((err) => console.error('Failed to fetch categories from backend:', err));
+
     fetchExpenses();
 
     if (isSupabaseConfigured && supabase) {
@@ -127,6 +140,28 @@ export default function App() {
     setExpenses((prev) =>
       prev.map((item) => (item.id === id ? { ...item, category: newCategory } : item))
     );
+  };
+
+  // 4b. Add Custom Category Handler (persisted in backend)
+  const handleAddCategory = async (name) => {
+    const trimmed = name.trim();
+
+    if (!allCategories.includes(trimmed)) {
+      const res = await fetch(apiUrl('/api/categories'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: trimmed }),
+      });
+
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.detail || `HTTP ${res.status}`);
+      }
+
+      setCustomCategories((prev) => (prev.includes(trimmed) ? prev : [...prev, trimmed]));
+    }
+
+    return trimmed;
   };
 
   // 5. Edit Transaction Handler
@@ -255,7 +290,7 @@ export default function App() {
   const { theme, toggleTheme } = useTheme();
 
   return (
-    <div className="app-layout" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div className="app-layout" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'row' }}>
       {/* Sidebar */}
       <div style={{
         width: 280,
@@ -271,7 +306,7 @@ export default function App() {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-6)' }}>
           <div style={{ width: 40, height: 40, borderRadius: 'var(--radius-lg)', background: 'var(--accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <i className="lucide Wallet" width={20} height={20} color="#fff" />
+            <Wallet size={20} color="#fff" />
           </div>
           <span style={{ fontWeight: 600, fontSize: '1rem' }}>AutoExpense</span>
         </div>
@@ -283,7 +318,9 @@ export default function App() {
             margin: 0,
           }}>
             <li style={{ marginBottom: 'var(--space-2)' }}>
-              <button
+              <motion.button
+                whileHover={{ x: 4, backgroundColor: 'var(--bg-tertiary)' }}
+                whileTap={{ scale: 0.97 }}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -302,12 +339,14 @@ export default function App() {
                 }}
                 onClick={() => setActiveFilter('overview')}
               >
-                <i className="lucide Layout" width={18} height={18} style={{ color: '#64748b', marginRight: 'var(--space-2)' }} />
+                <LayoutDashboard size={18} style={{ color: '#64748b', marginRight: 'var(--space-2)' }} />
                 Overview
-              </button>
+              </motion.button>
             </li>
             <li style={{ marginBottom: 'var(--space-2)' }}>
-              <button
+              <motion.button
+                whileHover={{ x: 4, backgroundColor: 'var(--bg-tertiary)' }}
+                whileTap={{ scale: 0.97 }}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -326,12 +365,14 @@ export default function App() {
                 }}
                 onClick={() => setActiveFilter('charts')}
               >
-                <i className="lucide Chart" width={18} height={18} style={{ color: '#64748b', marginRight: 'var(--space-2)' }} />
+                <PieChart size={18} style={{ color: '#64748b', marginRight: 'var(--space-2)' }} />
                 Charts
-              </button>
+              </motion.button>
             </li>
             <li style={{ marginBottom: 'var(--space-2)' }}>
-              <button
+              <motion.button
+                whileHover={{ x: 4, backgroundColor: 'var(--bg-tertiary)' }}
+                whileTap={{ scale: 0.97 }}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -350,15 +391,17 @@ export default function App() {
                 }}
                 onClick={() => setActiveFilter('transactions')}
               >
-                <i className="lucide List" width={18} height={18} style={{ color: '#64748b', marginRight: 'var(--space-2)' }} />
+                <List size={18} style={{ color: '#64748b', marginRight: 'var(--space-2)' }} />
                 Transactions
-              </button>
+              </motion.button>
             </li>
           </ul>
         </nav>
 
         <div style={{ padding: 'var(--space-4)', marginTop: 'auto', borderTop: '1px solid var(--border-primary)' }}>
-          <button
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
             style={{
               width: '100%',
               padding: 'var(--space-3) var(--space-4)',
@@ -374,9 +417,11 @@ export default function App() {
             }}
             onClick={() => setIsModalOpen(true)}
           >
-            <i className="lucide Plus" width={16} height={16} style={{ marginRight: 'var(--space-2)' }} /> Add Expense
-          </button>
-          <button
+            <Plus size={16} style={{ marginRight: 'var(--space-2)' }} /> Add Expense
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
             style={{
               width: '100%',
               padding: 'var(--space-3) var(--space-4)',
@@ -394,20 +439,28 @@ export default function App() {
           >
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
             Theme
-          </button>
+          </motion.button>
         </div>
       </div>
 
       {/* Main Content */}
       <main style={{ flex: 1, width: '100%', overflowY: 'auto', padding: 'var(--space-6) var(--space-4)' }}>
         <div style={{ display: 'flex', gap: 'var(--space-4)', marginBottom: 'var(--space-6)' }}>
-          <button
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             style={{
+              position: 'relative',
               padding: 'var(--space-2) var(--space-3)',
               borderRadius: 'var(--radius-md)',
               border: '1px solid var(--border-primary)',
               background: 'transparent',
-              color: 'var(--text-primary)',
+              color: activeFilter === 'overview'
+                ? 'var(--accent-primary)'
+                : 'var(--text-primary)',
+              borderColor: activeFilter === 'overview'
+                ? 'var(--accent-primary)'
+                : 'transparent',
               fontSize: '0.75rem',
               fontWeight: 500,
               textTransform: 'uppercase',
@@ -415,17 +468,24 @@ export default function App() {
               cursor: 'pointer',
             }}
             onClick={() => setActiveFilter('overview')}
-            {...activeFilter === 'overview' && { borderColor: 'var(--accent-primary)', color: 'var(--accent-primary)' }}
           >
+            {activeFilter === 'overview' && (
+              <motion.div layoutId="activeTab" style={{ position: 'absolute', inset: 0, borderRadius: 'var(--radius-md)', background: 'var(--bg-tertiary)', zIndex: -1 }} />
+            )}
             Overview
-          </button>
-          <button
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             style={{
+              position: 'relative',
               padding: 'var(--space-2) var(--space-3)',
               borderRadius: 'var(--radius-md)',
               border: '1px solid var(--border-primary)',
               background: 'transparent',
-              color: activeFilter === 'charts' ? 'var(--accent-primary)' : 'var(--text-secondary)',
+              color: activeFilter === 'charts'
+                ? 'var(--accent-primary)'
+                : 'var(--text-secondary)',
               fontSize: '0.75rem',
               fontWeight: 500,
               textTransform: 'uppercase',
@@ -433,17 +493,24 @@ export default function App() {
               cursor: 'pointer',
             }}
             onClick={() => setActiveFilter('charts')}
-            {...activeFilter === 'charts' && { borderColor: 'var(--accent-primary)', color: 'var(--accent-primary)' }}
           >
+            {activeFilter === 'charts' && (
+              <motion.div layoutId="activeTab" style={{ position: 'absolute', inset: 0, borderRadius: 'var(--radius-md)', background: 'var(--bg-tertiary)', zIndex: -1 }} />
+            )}
             Charts
-          </button>
-          <button
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             style={{
+              position: 'relative',
               padding: 'var(--space-2) var(--space-3)',
               borderRadius: 'var(--radius-md)',
               border: '1px solid var(--border-primary)',
               background: 'transparent',
-              color: activeFilter === 'transactions' ? 'var(--accent-primary)' : 'var(--text-secondary)',
+              color: activeFilter === 'transactions'
+                ? 'var(--accent-primary)'
+                : 'var(--text-secondary)',
               fontSize: '0.75rem',
               fontWeight: 500,
               textTransform: 'uppercase',
@@ -451,33 +518,47 @@ export default function App() {
               cursor: 'pointer',
             }}
             onClick={() => setActiveFilter('transactions')}
-            {...activeFilter === 'transactions' && { borderColor: 'var(--accent-primary)', color: 'var(--accent-primary)' }}
           >
+            {activeFilter === 'transactions' && (
+              <motion.div layoutId="activeTab" style={{ position: 'absolute', inset: 0, borderRadius: 'var(--radius-md)', background: 'var(--bg-tertiary)', zIndex: -1 }} />
+            )}
             Transactions
-          </button>
+          </motion.button>
         </div>
 
-        {/* KPI Cards + Charts */}
-        {activeFilter !== 'transactions' && (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
-            gap: 'var(--space-5)',
-            marginBottom: 'var(--space-6)',
-          }}>
-            <KpiCards expenses={expenses} selectedMonth={selectedMonth} selectedYear={selectedYear} />
-            <ExpenseCharts expenses={expenses} selectedMonth={selectedMonth} selectedYear={selectedYear} />
-          </div>
-        )}
-
-        {/* Transaction List */}
-        {activeFilter === 'transactions' && (
+        <AnimatePresence mode="wait">
+          {activeFilter !== 'transactions' ? (
+            <motion.div
+              key="overview-charts"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
+                gap: 'var(--space-5)',
+                marginBottom: 'var(--space-6)',
+              }}
+            >
+              <KpiCards expenses={expenses} selectedMonth={selectedMonth} selectedYear={selectedYear} />
+              <ExpenseCharts expenses={expenses} selectedMonth={selectedMonth} selectedYear={selectedYear} />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="transactions"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+            >
           <TransactionList
             expenses={expenses}
             selectedMonth={selectedMonth}
             selectedYear={selectedYear}
             monthNames={monthNames}
             yearOptions={yearOptions}
+            categories={allCategories}
             onUpdateCategory={handleUpdateCategory}
             onEdit={(id, updates) => handleEditExpense(id, updates)}
             onDelete={handleDeleteExpense}
@@ -491,7 +572,9 @@ export default function App() {
             selectedCategory={selectedCategory}
             setSelectedCategory={setSelectedCategory}
           />
-        )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
 
       {/* Add Expense Modal */}
@@ -502,6 +585,8 @@ export default function App() {
           setEditingExpense(null);
         }}
         mode="add"
+        categories={allCategories}
+        onAddCategory={handleAddCategory}
         onSubmit={handleAddExpense}
       />
     </div>
