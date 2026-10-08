@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { motion } from 'framer-motion';
+import React, { useMemo, useEffect, useRef, useState } from 'react';
+import { motion, animate } from 'framer-motion';
 import { 
   Wallet, 
   CreditCard, 
@@ -42,6 +42,23 @@ const KPI_CONFIG = [
   },
 ];
 
+function AnimatedNumber({ value, format }) {
+  const [display, setDisplay] = useState(value);
+  const prev = useRef(value);
+
+  useEffect(() => {
+    const controls = animate(prev.current, value, {
+      duration: 0.6,
+      ease: 'easeOut',
+      onUpdate: setDisplay,
+    });
+    prev.current = value;
+    return () => controls.stop();
+  }, [value]);
+
+  return format ? format(display) : Math.round(display);
+}
+
 function TrendIndicator({ value, isPositive, icon: Icon }) {
   if (value === null || value === undefined) return null;
   
@@ -60,16 +77,18 @@ function TrendIndicator({ value, isPositive, icon: Icon }) {
   );
 }
 
-function KpiCard({ 
-  title, 
-  value, 
-  subtitle, 
-  icon: Icon, 
-  color, 
-  trendValue, 
+function KpiCard({
+  title,
+  value,
+  numericValue,
+  formatter,
+  subtitle,
+  icon: Icon,
+  color,
+  trendValue,
   trendIcon,
   onClick,
-  index = 0 
+  index = 0
 }) {
   const colorMap = {
     primary: { bg: 'var(--accent-primary-muted)', text: 'var(--accent-primary)', iconBg: 'var(--accent-primary)' },
@@ -137,7 +156,7 @@ function KpiCard({
         lineHeight: 1.2,
         marginBottom: 'var(--space-1)',
       }}>
-        {value}
+        {numericValue !== undefined ? <AnimatedNumber value={numericValue} format={formatter} /> : value}
       </div>
       {subtitle && (
         <div style={{
@@ -237,14 +256,16 @@ export default function KpiCards({ expenses, previousExpenses = [] }) {
       <KpiCard
         index={0}
         {...KPI_CONFIG[0]}
-        value={formatCurrency(totalSpent)}
+        numericValue={totalSpent}
+        formatter={formatCurrency}
         subtitle={txCount > 0 ? `${txCount} transactions` : 'No data'}
         trendValue={totalTrend}
       />
       <KpiCard
         index={1}
         {...KPI_CONFIG[1]}
-        value={txCount.toLocaleString()}
+        numericValue={txCount}
+        formatter={(v) => Math.round(v).toLocaleString()}
         subtitle={txCount > 0 ? `Avg ${formatCurrency(avgExpense)}` : 'No data'}
         trendValue={countTrend}
       />
@@ -258,7 +279,8 @@ export default function KpiCards({ expenses, previousExpenses = [] }) {
       <KpiCard
         index={3}
         {...KPI_CONFIG[3]}
-        value={formatCurrency(avgExpense)}
+        numericValue={avgExpense}
+        formatter={formatCurrency}
         subtitle={txCount > 0 ? 'Per transaction' : 'No data'}
         trendValue={avgTrend}
       />
